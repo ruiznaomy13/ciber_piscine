@@ -1,0 +1,54 @@
+#!/usr/bin/env ruby
+
+require_relative 'parser'
+require 'net/http'
+require 'uri'
+require 'nokogiri'
+require 'fileutils'
+
+EXT = %w[.jpg .jpeg .png .gif .bmp]
+
+def download_img(url, options)
+  uri = URI(url)
+  html = Net::HTTP.get(uri)
+  doc = Nokogiri::HTML(html)
+
+  images = doc.css('img').map do |img|
+    src = img['src']
+    URI.join(url, src).to_s if src
+  end.compact # erase the nil
+
+  FileUtils.mkdir_p(options[:path])
+
+  images.each do |img_url|
+    begin
+      img_uri = URI(img_url)
+      filename = File.basename(img_uri.path)
+      ext = File.extname(filename).downcase
+
+      next unless EXT.include?(ext)
+      filepath = File.join(options[:path], filename)
+
+      Net::HTTP.start(img_uri.host, img_uri.port, use_ssl: img_uri.scheme == 'https') do |http|
+        response = http.get(img_uri.path)
+        File.open(filepath, 'wb') { |file| file.write(response.body) }
+      end
+
+      puts "#{img_url} SUCCESFULLY SAVED! :)\n"
+    rescue => e
+      puts "DOWNLOAD FAILED for #{img_url}: #{e.message}"
+    end
+  end
+end
+
+def main
+  options, url = parse_arguments
+
+  p options
+  puts url
+
+  download_img(url, options)
+end
+
+main
+
