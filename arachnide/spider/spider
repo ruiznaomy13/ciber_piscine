@@ -1,0 +1,62 @@
+#!/usr/bin/env ruby
+
+require_relative 'parser'
+require_relative 'utils'
+
+EXT = %w[.jpg .jpeg .png .gif .bmp]
+MAX_PGS = 10
+
+def recursion(url, options, current_depth = 0, visited = Set.new, saved_imgs = Set.new)
+  return if current_depth > options[:depth]
+  return if visited.size >= MAX_PGS
+  return if visited.include?(url)
+
+  visited.add(url)
+  puts "Depth #{current_depth}: #{url}"
+
+  html = safe_fetch(url)
+  return unless html
+
+  doc = Nokogiri::HTML(html)
+
+  # Download images for the current page regardless of depth limit
+  download_img(doc, url, options, saved_imgs)
+
+  # STOP recursing if we have reached the target depth limit
+  return if current_depth == options[:depth]
+
+  links = doc.css('a').map do |a|
+    href = a['href']
+    next unless href
+
+    begin
+      URI.join(url, href).to_s
+    rescue
+      nil
+    end
+  end.compact
+
+  links.each do |link|
+    recursion(link, options, current_depth + 1, visited, saved_imgs)
+  end
+end
+
+def main
+  options, url = parse_arguments
+
+  p options
+  puts url
+
+  if options[:recursive]
+    recursion(url, options)
+  else
+    html = safe_fetch(url)
+    return puts "Failed to fetch URL: #{url}" unless html
+
+    doc = Nokogiri::HTML(html)
+    saved_imgs = Set.new
+    download_img(doc, url, options, saved_imgs)
+  end
+end
+
+main
