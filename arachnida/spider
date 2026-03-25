@@ -4,8 +4,8 @@
 path = File.expand_path("./lib", __dir__)
 $:.unshift(path)
 
-require "spyder"
+require "spider"
 
 Signal.trap("INT") { puts; exit(1) }
 
-Spyder.start(ARGV)
+Spider.start(ARGV)

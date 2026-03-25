@@ -21,6 +21,9 @@ class Command
   class RequiredArgumentMissingError < Error
   end
 
+  class OptionRequiresMissingError < Error
+  end
+
   class Argument
     attr_reader :name, :type, :default, :required, :banner
 
@@ -34,13 +37,14 @@ class Command
   end
 
   class Option < Argument
-    attr_reader :aliases, :desc
+    attr_reader :aliases, :desc, :requires
 
     def initialize(name, options = {})
       super
       @required = options.fetch(:required, false)
       @aliases = Array(options[:aliases])
       @desc = options[:desc] || ""
+      @requires = Array(options[:requires])
     end
 
     def switch_name()
@@ -97,6 +101,7 @@ class Command
 
   def initialize()
     @options = Hash.new { |h, k| h[k.to_s] if k.is_a?(Symbol) }
+    @set_options = {}
   end
 
   def say(message, *styles)
@@ -137,7 +142,10 @@ class Command
       OptionParser.new do |parser|
         self.class.options.each do |name, opt|
           switches = build_switches(opt)
-          parser.on(*switches, opt.desc) { |v| @options[name.to_s] = v }
+          parser.on(*switches, opt.desc) do |v|
+            @options[name.to_s] = v
+            @set_options[name.to_s] = true
+          end
         end
       end
     end
@@ -160,6 +168,16 @@ class Command
       self.class.options.each do |name, opt|
         if opt.required && !@options.key?(name.to_s)
           raise(RequiredArgumentMissingError, "Missing required option: --#{opt.switch_name}")
+        end
+        check_option_requires(opt)
+      end
+    end
+
+    def check_option_requires(opt)
+      opt.requires.each do |required_opt|
+        required_name = required_opt.to_s
+        if @set_options[opt.name] && !@set_options[required_name]
+          raise(OptionRequiresMissingError, "flag --#{opt.switch_name} requires --#{required_opt.to_s.tr('_', '-')}")
         end
       end
     end
