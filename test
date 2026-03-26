@@ -1,0 +1,60 @@
+#!/usr/bin/env ruby
+
+require 'exifr'
+
+VALID_EXT = [".jpg", ".jpeg", ".png", ".bmp", ".gif"]
+
+def check_file file
+  if !File.exist?(file)
+    puts "Invalid file #{file}"
+    return false
+  elsif !VALID_EXT.include?(File.extname(file).downcase)
+    puts "Invalid extension #{file}"
+    return false
+  end
+  puts "Valid file #{file}"
+  return true
+end
+
+def show_exif file, photo
+  puts "--- Datos de #{file} ---"
+  puts "Modelo:    #{photo.model}"
+  puts "Size:      #{File.size(file)}"
+  puts "Fecha:     #{photo.date_time}"
+  puts "ISO:       #{photo.iso}"
+  puts "Software:  #{photo.software}"
+ if photo.gps
+   puts "Latitud:   #{photo.gps.latitude}"
+   puts "Longitud:  #{photo.gps.longitude}"
+ end
+end
+
+def show_data file, ext
+  puts "--- Datos de #{file} ---"
+  puts "Type:    #{ext.upcase}"
+  puts "Size:    #{File.size(file)}"
+end
+
+def	main
+  ARGV.each do |av|
+    next unless check_file(av)
+    ext = File.extname(av).downcase
+
+    if (ext == '.jpg' || ext == '.jpeg')
+      begin
+        photo = EXIFR::JPEG.new(av)
+        if photo.exifr?
+          show_exif(av, photo)
+        else
+          puts "INFO: #{av} doesn't have metadata EXIF."
+        end
+      rescue StandardError => e
+          puts "INFO: something failed processing #{av}"
+      end
+    else
+      show_data av, ext
+    end
+  end
+end
+
+main
